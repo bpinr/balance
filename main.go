@@ -7,7 +7,7 @@ import (
 )
 
 type PaymentSystem struct {
-	mu           sync.RWMutex // защищает мапу Users и слайс Transactions
+	mu           sync.RWMutex
 	Users        map[string]*User
 	Transactions []Transaction
 }
@@ -47,10 +47,10 @@ func (p *PaymentSystem) ProcessingTransactions(t Transaction) error {
 		return errors.New("receiver not found")
 	}
 
-	if err := from.Withdraw(int64(t.Amount)); err != nil {
+	if err := from.Withdraw(t.Amount); err != nil {
 		return err
 	}
-	if err := to.Deposit(int64(t.Amount)); err != nil {
+	if err := to.Deposit(t.Amount); err != nil {
 		return err
 	}
 
@@ -77,10 +77,10 @@ type User struct {
 	mu      sync.Mutex // защищает Balance
 	ID      string
 	Name    string
-	Balance int64
+	Balance float64
 }
 
-func (u *User) Deposit(amount int64) error {
+func (u *User) Deposit(amount float64) error {
 	u.mu.Lock()
 	defer u.mu.Unlock()
 
@@ -91,7 +91,7 @@ func (u *User) Deposit(amount int64) error {
 	return nil
 }
 
-func (u *User) Withdraw(amount int64) error {
+func (u *User) Withdraw(amount float64) error {
 	u.mu.Lock()
 	defer u.mu.Unlock()
 
@@ -125,12 +125,12 @@ func main() {
 		fmt.Println("add user 1:", err)
 	}
 
-	ps.AddTransaction(Transaction{FromID: "1", ToID: "2", Amount: 20000}) // ок
-	ps.AddTransaction(Transaction{FromID: "2", ToID: "3", Amount: 15000}) // ок, если воркеры обработают её после первой
-	ps.AddTransaction(Transaction{FromID: "3", ToID: "1", Amount: 99999}) // insufficient funds
-	ps.AddTransaction(Transaction{FromID: "1", ToID: "42", Amount: 100})  // receiver not found
-	ps.AddTransaction(Transaction{FromID: "1", ToID: "1", Amount: 100})   // cannot transfer to self
-	ps.AddTransaction(Transaction{FromID: "1", ToID: "3", Amount: -500})  // invalid amount
+	ps.AddTransaction(Transaction{FromID: "1", ToID: "2", Amount: 20000})
+	ps.AddTransaction(Transaction{FromID: "2", ToID: "3", Amount: 15000})
+	ps.AddTransaction(Transaction{FromID: "3", ToID: "1", Amount: 99999})
+	ps.AddTransaction(Transaction{FromID: "1", ToID: "42", Amount: 100})
+	ps.AddTransaction(Transaction{FromID: "1", ToID: "1", Amount: 100})
+	ps.AddTransaction(Transaction{FromID: "1", ToID: "3", Amount: -500})
 
 	ch := make(chan Transaction, len(ps.Transactions))
 
@@ -151,6 +151,6 @@ func main() {
 	// порядок обхода мапы в Go случайный, поэтому идём по слайсу
 	for _, u := range users {
 		cur := ps.Users[u.ID]
-		fmt.Printf("ID: %s | Имя: %s | Баланс: %d коп.\n", cur.ID, cur.Name, cur.Balance)
+		fmt.Printf("ID: %s | Имя: %s | Баланс: %.2f\n", cur.ID, cur.Name, cur.Balance)
 	}
 }
